@@ -1,0 +1,10 @@
+language = "C"
+header = "/* OnewaySWP Core - Auto-generated */"
+include_guard = "ONEWAYSWP_H"
+autogen_warning = "/* WARNING: Auto-generated. Do not edit. */"
+namespace = "owswp"
+cpp_compat = true
+tab_width = 4
+line_length = 100
+documentation = true
+documentation_style = "doxy"
