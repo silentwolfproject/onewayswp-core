@@ -1,4 +1,4 @@
-use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+use ed25519_dalek::{Signature, VerifyingKey};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -63,6 +63,13 @@ impl LicensePayload {
     pub fn from_json(s: &str) -> Result<Self> {
         serde_json::from_str(s)
             .map_err(|e| OnewayError::SerializationError(e.to_string()))
+    }
+
+    pub fn is_expired(&self) -> bool {
+        if let Some(exp) = self.expires_at {
+            return now_unix() > exp;
+        }
+        false
     }
 }
 

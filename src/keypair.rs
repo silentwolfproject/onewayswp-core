@@ -67,7 +67,7 @@ pub fn parse_secret(s: &str) -> Result<SigningKey> {
 pub fn parse_public(s: &str) -> Result<VerifyingKey> {
     if s.starts_with(SEC_PREFIX) {
         return Err(OnewayError::SecurityError(
-            "you provided a secret key. Use public key.".into(),
+            "Security error: you provided a secret key. Use public key.".into(),
         ));
     }
     if !s.starts_with(PUB_PREFIX) {

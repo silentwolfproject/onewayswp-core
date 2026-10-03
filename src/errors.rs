@@ -23,9 +23,6 @@ pub enum OnewayError {
     #[error("Clock rollback detected")]
     ClockRollback,
 
-    #[error("Hardware mismatch")]
-    HardwareMismatch,
-
     #[error("Corrupted file")]
     CorruptedFile,
 
@@ -63,7 +60,6 @@ impl OnewayError {
             OnewayError::KeyMismatch => "KEY_MISMATCH",
             OnewayError::Expired => "EXPIRED",
             OnewayError::ClockRollback => "CLOCK_ROLLBACK_DETECTED",
-            OnewayError::HardwareMismatch => "HARDWARE_MISMATCH",
             OnewayError::CorruptedFile => "CORRUPTED_FILE",
             OnewayError::InsufficientCredits => "INSUFFICIENT_CREDITS",
             OnewayError::FileLocked => "FILE_LOCKED",

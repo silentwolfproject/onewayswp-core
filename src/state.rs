@@ -19,6 +19,7 @@ pub struct StateData {
     pub last_known_timestamp: i64,
     pub remaining_credits: i64,
     pub expires_at: Option<i64>,
+    pub duration_seconds: Option<i64>,
     pub additional_data: Value,
 }
 
@@ -32,6 +33,7 @@ impl StateData {
             last_known_timestamp: now,
             remaining_credits: 0,
             expires_at: None,
+            duration_seconds: None,
             additional_data: Value::Object(Default::default()),
         }
     }

@@ -8,9 +8,6 @@ pub struct Response {
     pub status: bool,
     pub code: String,
     pub message: String,
-    #[serde(rename = "type")]
-    pub license_type: Option<String>,
-    pub remaining: Option<i64>,
     pub additional_data: Value,
 }
 
@@ -20,25 +17,16 @@ impl Response {
             status: true,
             code: "SUCCESS".to_string(),
             message: message.into(),
-            license_type: None,
-            remaining: None,
             additional_data: Value::Object(Default::default()),
         }
     }
 
-    pub fn success_with(
-        message: impl Into<String>,
-        license_type: Option<String>,
-        remaining: Option<i64>,
-        additional_data: Value,
-    ) -> Self {
+    pub fn success_with_data(message: impl Into<String>, data: Value) -> Self {
         Self {
             status: true,
             code: "SUCCESS".to_string(),
             message: message.into(),
-            license_type,
-            remaining,
-            additional_data,
+            additional_data: data,
         }
     }
 
@@ -47,15 +35,28 @@ impl Response {
             status: false,
             code: error.code().to_string(),
             message: error.to_string(),
-            license_type: None,
-            remaining: None,
             additional_data: Value::Object(Default::default()),
         }
     }
 
     pub fn to_json(&self) -> String {
-        serde_json::to_string(self).unwrap_or_else(|_| {
-            r#"{"status":false,"code":"SERIALIZATION_ERROR","message":"Failed","type":null,"remaining":null,"additional_data":{}}"#.to_string()
+        let mut map = serde_json::Map::new();
+        map.insert("status".into(), serde_json::json!(self.status));
+        map.insert("code".into(), serde_json::json!(self.code));
+        map.insert("message".into(), serde_json::json!(self.message));
+
+        if self.status {
+            if let Some(obj) = self.additional_data.as_object() {
+                for (k, v) in obj {
+                    if !v.is_null() {
+                        map.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+        }
+
+        serde_json::to_string(&Value::Object(map)).unwrap_or_else(|_| {
+            r#"{"status":false,"code":"SERIALIZATION_ERROR","message":"Failed"}"#.to_string()
         })
     }
 }
