@@ -7,8 +7,8 @@ use crate::errors::OnewayError;
 use crate::keypair::{parse_public, parse_secret, KeyPair};
 use crate::license::{create_license_token, parse_license_token, LicensePayload};
 use crate::response::Response;
-use crate::state::{load_state, save_state, StateData};
-use crate::utils::{now_unix, parse_date};
+use crate::state::{load_state, load_state_from_bytes, save_state, StateData};
+use crate::utils::{decode_b64, encode_b64, now_unix, parse_date};
 
 fn cstr_to_str(ptr: *const c_char) -> Result<String, OnewayError> {
     if ptr.is_null() {
@@ -600,14 +600,16 @@ pub extern "C" fn owswp_export_state(
         let pub_str = cstr_to_str(public_key)?;
         let path = cstr_to_str(swpb_path)?;
 
-        let verifying = parse_public(&pub_str)?;
-        let state = load_state(&path, verifying.as_bytes())?;
+        let _verifying = parse_public(&pub_str)?;
 
-        let data = serde_json::to_string(&state)
-            .map_err(|e| OnewayError::SerializationError(e.to_string()))?;
+        let raw = std::fs::read(&path)
+            .map_err(|e| OnewayError::IoError(e.to_string()))?;
+
+        let encoded = encode_b64(&raw);
 
         let mut map = serde_json::Map::new();
-        map.insert("data".into(), serde_json::json!(data));
+        map.insert("data".into(), serde_json::json!(encoded));
+        map.insert("public_key".into(), serde_json::json!(pub_str));
 
         Ok(Response {
             status: true,
@@ -638,9 +640,28 @@ pub extern "C" fn owswp_import_state(
 
         let verifying = parse_public(&pub_str)?;
 
-        let state: StateData = serde_json::from_str(&data_str)
+        let parsed: serde_json::Value = serde_json::from_str(&data_str)
             .map_err(|e| OnewayError::SerializationError(e.to_string()))?;
 
+        let encoded = parsed
+            .get("data")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| OnewayError::SerializationError("Missing data field".into()))?;
+
+        let original_public = parsed
+            .get("public_key")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| OnewayError::SerializationError("Missing public_key field".into()))?;
+
+        if original_public != pub_str {
+            return Err(OnewayError::SecurityError(
+                "State ownership mismatch: cannot import state from different key".into(),
+            ));
+        }
+
+        let raw = decode_b64(encoded)?;
+
+        let state = load_state_from_bytes(&raw, verifying.as_bytes())?;
         save_state(&path, verifying.as_bytes(), &state)?;
 
         Ok(Response::success("State imported"))

@@ -64,9 +64,7 @@ pub fn save_state(path: &str, public_bytes: &[u8; 32], state: &StateData) -> Res
     Ok(())
 }
 
-pub fn load_state(path: &str, public_bytes: &[u8; 32]) -> Result<StateData> {
-    let blob = std::fs::read(path).map_err(|e| OnewayError::IoError(e.to_string()))?;
-
+pub fn load_state_from_bytes(blob: &[u8], public_bytes: &[u8; 32]) -> Result<StateData> {
     if blob.len() < 8 + HMAC_SIZE {
         return Err(OnewayError::CorruptedFile);
     }
@@ -91,4 +89,9 @@ pub fn load_state(path: &str, public_bytes: &[u8; 32]) -> Result<StateData> {
 
     let json = std::str::from_utf8(&json_bytes).map_err(|_| OnewayError::CorruptedFile)?;
     serde_json::from_str(json).map_err(|e| OnewayError::SerializationError(e.to_string()))
+}
+
+pub fn load_state(path: &str, public_bytes: &[u8; 32]) -> Result<StateData> {
+    let blob = std::fs::read(path).map_err(|e| OnewayError::IoError(e.to_string()))?;
+    load_state_from_bytes(&blob, public_bytes)
 }

@@ -145,7 +145,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: onewayswp-${{ matrix.name }}
+          name: ${{ matrix.name }}
           path: dist/
           retention-days: 90
           if-no-files-found: warn
