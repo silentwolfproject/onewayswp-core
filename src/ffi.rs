@@ -29,30 +29,6 @@ fn string_to_c(s: String) -> *mut c_char {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn owswp_info() -> *mut c_char {
-    let response = Response {
-        status: true,
-        code: "SUCCESS".into(),
-        message: "Library info".into(),
-        license_type: None,
-        remaining: None,
-        additional_data: serde_json::json!({
-            "author": "Juan Hulu - silentwolfproject",
-            "oneway_version": env!("CARGO_PKG_VERSION"),
-            "author_github": "https://github.com/juanhulu",
-            "swp_github": "https://github.com/silentwolfproject",
-            "author_tiktok": "https://tiktok.com/@juanhulu.xyz",
-            "swp_tiktok": "https://tiktok.com/@juanhulu.xyz",
-            "author_instagram": "https://www.instagram.com/juanhulu.xyz",
-            "swp_instagram": "https://www.instagram.com/silentwolfproject",
-            "swp_github_pages": "https://silentwolfproject.github.io",
-            "description": "OnewaySWP is a lightweight license framework designed for offline verification. It works entirely without a server or internet connection, ensuring that licensed applications remain verifiable anywhere, anytime. Built with strong security in mind, it protects license integrity and prevents tampering through a self-contained verification system. The internal security methods are kept private to discourage duplication and reverse engineering. OnewaySWP provides a simple, dependable licensing solution for developers who value portability, privacy, and protection.",
-        }),
-    };
-    string_to_c(response.to_json())
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn owswp_generate_key_pair() -> *mut c_char {
     let kp = KeyPair::generate();
     let response = Response {
@@ -99,7 +75,7 @@ pub extern "C" fn owswp_create_license(
     license_type: *const c_char,
     payload_json: *const c_char,
 ) -> *mut c_char {
-    let result = (|| -> Result<String, OnewayError> {
+    let result = (|| -> Result<(String, String, Option<i64>), OnewayError> {
         let sec = cstr_to_str(secret_key)?;
         let ltype = cstr_to_str(license_type)?;
         let payload_str = cstr_to_str(payload_json)?;
@@ -136,16 +112,20 @@ pub extern "C" fn owswp_create_license(
             additional,
         );
 
-        create_license_token(&kp, &license)
+        let token = create_license_token(&kp, &license)?;
+
+        let remaining = credits.or(duration_seconds);
+
+        Ok((token, ltype, remaining))
     })();
 
     let response = match result {
-        Ok(token) => Response {
+        Ok((token, license_type, remaining)) => Response {
             status: true,
             code: "SUCCESS".into(),
             message: "License created".into(),
-            license_type: None,
-            remaining: None,
+            license_type: Some(license_type),
+            remaining,
             additional_data: serde_json::json!({ "token": token }),
         },
         Err(e) => Response::failure(&e),
@@ -189,10 +169,12 @@ pub extern "C" fn owswp_validate_key(
 
         save_state(&path, verifying.as_bytes(), &state)?;
 
+        let remaining = payload.credits.or(payload.duration_seconds);
+
         Ok(Response::success_with(
             "License valid and activated",
             Some(payload.license_type.clone()),
-            payload.credits,
+            remaining,
             payload.additional_data.clone(),
         ))
     })();
@@ -234,10 +216,20 @@ pub extern "C" fn owswp_protection_verify(
         state.last_known_timestamp = now;
         save_state(&path, verifying.as_bytes(), &state)?;
 
+        let remaining = if state.license_type == "credit" {
+            Some(state.remaining_credits)
+        } else if state.license_type == "duration" {
+            let elapsed = now - state.created_at;
+            let total = state.remaining_credits.max(0);
+            Some((total - elapsed).max(0))
+        } else {
+            None
+        };
+
         Ok(Response::success_with(
             "Protection verified",
             Some(state.license_type.clone()),
-            Some(state.remaining_credits),
+            remaining,
             state.additional_data.clone(),
         ))
     })();
@@ -248,30 +240,6 @@ pub extern "C" fn owswp_protection_verify(
     };
 
     string_to_c(response.to_json())
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn owswp_hardware_id() -> *mut c_char {
-    let hwid = crate::hardware::hardware_id();
-    let response = Response {
-        status: true,
-        code: "SUCCESS".into(),
-        message: "Hardware ID".into(),
-        license_type: None,
-        remaining: None,
-        additional_data: serde_json::json!({ "hardware_id": hwid }),
-    };
-    string_to_c(response.to_json())
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn owswp_free_string(ptr: *mut c_char) {
-    if ptr.is_null() {
-        return;
-    }
-    unsafe {
-        let _ = CString::from_raw(ptr);
-    }
 }
 
 #[unsafe(no_mangle)]
@@ -287,4 +255,38 @@ pub extern "C" fn owswp_version() -> *mut c_char {
         }),
     };
     string_to_c(response.to_json())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn owswp_info() -> *mut c_char {
+    let response = Response {
+        status: true,
+        code: "SUCCESS".into(),
+        message: "Library info".into(),
+        license_type: None,
+        remaining: None,
+        additional_data: serde_json::json!({
+            "author": "Juan Hulu - silentwolfproject",
+            "oneway_version": env!("CARGO_PKG_VERSION"),
+            "author_github": "https://github.com/juanhulu",
+            "swp_github": "https://github.com/silentwolfproject",
+            "author_tiktok": "https://tiktok.com/@juanhulu.xyz",
+            "swp_tiktok": "https://tiktok.com/@juanhulu.xyz",
+            "author_instagram": "https://www.instagram.com/juanhulu.xyz",
+            "swp_instagram": "https://www.instagram.com/silentwolfproject",
+            "swp_github_pages": "https://silentwolfproject.github.io",
+            "description": "OnewaySWP is a lightweight license framework designed for offline verification. It works entirely without a server or internet connection, ensuring that licensed applications remain verifiable anywhere, anytime. Built with strong security in mind, it protects license integrity and prevents tampering through a self-contained verification system. The internal security methods are kept private to discourage duplication and reverse engineering. OnewaySWP provides a simple, dependable licensing solution for developers who value portability, privacy, and protection.",
+        }),
+    };
+    string_to_c(response.to_json())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn owswp_free_string(ptr: *mut c_char) {
+    if ptr.is_null() {
+        return;
+    }
+    unsafe {
+        let _ = CString::from_raw(ptr);
+    }
 }

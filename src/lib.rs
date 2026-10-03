@@ -2,7 +2,6 @@ pub mod clock;
 pub mod crypto;
 pub mod errors;
 pub mod ffi;
-pub mod hardware;
 pub mod keypair;
 pub mod license;
 pub mod response;

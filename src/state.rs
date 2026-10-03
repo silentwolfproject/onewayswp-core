@@ -19,7 +19,6 @@ pub struct StateData {
     pub last_known_timestamp: i64,
     pub remaining_credits: i64,
     pub expires_at: Option<i64>,
-    pub hardware_id: Option<String>,
     pub additional_data: Value,
 }
 
@@ -33,7 +32,6 @@ impl StateData {
             last_known_timestamp: now,
             remaining_credits: 0,
             expires_at: None,
-            hardware_id: None,
             additional_data: Value::Object(Default::default()),
         }
     }
